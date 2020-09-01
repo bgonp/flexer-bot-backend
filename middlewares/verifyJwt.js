@@ -1,28 +1,56 @@
 const jwt = require("jsonwebtoken");
+const Bot = require("../models/Bot");
 
-const verifyJwt = (req, res, next) => {
-  const jwt = req.header("Authorization");
+const verifyAccess = (req, res, next) => {
+  const token = req.header("Authorization");
 
-  if (!jwt) {
-    return res.status(400).json({
-      error: true,
+  if (!token) {
+    return res.json({
+      success: false,
+      message: "Token required",
+    });
+  }
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+    if (error) {
+      res.json({
+        success: false,
+        message: "Wrong token",
+      });
+    } else {
+      req.id = decoded.id;
+      req.username = decoded.username;
+      next();
+    }
+  });
+};
+
+const verifyRefresh = async (req, res, next) => {
+  const token = req.header("Authorization");
+
+  if (!token) {
+    return res.json({
+      success: false,
       message: "Token required",
     });
   }
 
   try {
-    const { id, email } = jwt.verify(jwt, process.env.SECRET_JWT_SEED);
+    const { id } = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+    const bot = await Bot.findById(id);
 
-    req.id = id;
-    req.email = email;
+    if (!bot || bot.refresh !== token) {
+      throw new Error();
+    }
+
+    req.bot = bot;
+    next();
   } catch (error) {
-    return res.status(401).json({
-      error: true,
+    return res.json({
+      success: false,
       message: "Wrong token",
     });
   }
-
-  next();
 };
 
-module.exports = { verifyJwt };
+module.exports = { verifyAccess, verifyRefresh };

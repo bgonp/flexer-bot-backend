@@ -1,0 +1,45 @@
+### AVAILABLE
+GET http://localhost:4000/api/auth/available?username=vayaustecondioh
+
+### REGISTER
+POST http://localhost:4000/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "vayaustecondioh",
+  "password": "password",
+  "token": "asd",
+  "channel": "vayaustecondioh"
+}
+
+### LOGIN
+POST http://localhost:4000/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "vayaustecondioh",
+  "password": "password"
+}
+
+### LOGOUT
+POST http://localhost:4000/api/auth/logout
+Content-Type: application/json
+
+{
+  "id": "5f4aaaa6avcxv10d35a9fe0f1b1baae3a"
+}
+
+### REFRESH
+GET http://localhost:4000/api/auth/refresh
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjVmNDZhMTBkMzVhOWZlMGYxYjFiYWFlMyIsInVzZXJuYW1lIjoidmF5YXVzdGVjb25kaW9oIiwiaWF0IjoxNTk4NDc0MzEwfQ.yYrbjcSmE9BAEtLWIg8NaLv0CC65qP4Lo9YtDebCMaw
+
+### UPDATE
+PUT http://localhost:4000/api/auth/update
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjVmNDZhMTBkMzVhOWZlMGYxYjFiYWFlMyIsInVzZXJuYW1lIjoidmF5YXVzdGVjb25kaW9oIiwiaWF0IjoxNTk4NDc0MzEwfQ.yYrbjcSmE9BAEtLWIg8NaLv0CC65qP4Lo9YtDebCMaw
+Content-Type: application/json
+
+{
+  "id": "",
+  "token": "",
+  "channel": "",
+}

@@ -1,24 +1,24 @@
 const jwt = require("jsonwebtoken");
 
-const createJwt = (id, email) => {
-  return new Promise((resolve, reject) => {
-    const payload = { id, email };
-
-    jwt.sign(
-      payload,
-      process.env.SECRET_JWT_SEED,
-      {
-        expiresIn: "2h",
-      },
-      (error, token) => {
-        if (error) {
-          console.error(error);
-          reject("Couldn't create JWT");
-        }
-        resolve(token);
+const createToken = (secret, payload, options = {}) =>
+  new Promise((resolve, reject) => {
+    jwt.sign(payload, secret, options, (error, token) => {
+      if (error) {
+        reject("Couldn't create JWT");
       }
-    );
+      resolve(token);
+    });
   });
+
+const createAccessToken = (id, username) => {
+  const payload = { id, username };
+  const options = { expiresIn: "2h" };
+  return createToken(process.env.ACCESS_TOKEN_SECRET, payload, options);
 };
 
-module.exports = { createJwt };
+const createRefreshToken = (id, username) => {
+  const payload = { id, username };
+  return createToken(process.env.REFRESH_TOKEN_SECRET, payload);
+};
+
+module.exports = { createAccessToken, createRefreshToken };

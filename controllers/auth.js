@@ -1,66 +1,158 @@
 const bcrypt = require("bcryptjs");
-const { createJwt } = require("../helpers/jwt");
-const User = require("../models/User");
+const CryptoJS = require("crypto-js");
+
+const Bot = require("../models/Bot");
+const { createAccessToken, createRefreshToken } = require("../helpers/jwt");
+const { fetchUser } = require("../helpers/twitch");
 
 const register = async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password, token, channel } = req.body;
 
   try {
-    let user = await User.findOne({ email });
-    if (user) {
+    let bot = await Bot.findOne({ username });
+    if (bot) {
       return res.json({
         success: false,
-        message: "Email address already registered",
+        message: "Bot username already registered",
       });
     }
 
     const salt = bcrypt.genSaltSync();
-    hashedPassword = bcrypt.hashSync(password, salt);
+    const hashedPassword = bcrypt.hashSync(password, salt);
+    const encryptedToken = CryptoJS.AES.encrypt(
+      token,
+      process.env.AES_SECRET
+    ).toString();
 
-    user = new User({ email, password: hashedPassword });
+    bot = new Bot({
+      username,
+      password: hashedPassword,
+      token: encryptedToken,
+      channel,
+      avatar: "",
+    });
 
-    await user.save();
+    const refresh = await createRefreshToken(bot.id, bot.username);
+    bot.refresh = refresh;
 
-    const jwt = await createJwt(user.id, user.email);
+    await bot.save();
 
-    res.json({ success: true, jwt, user: user.toJSON() });
+    const jwt = await createAccessToken(bot.id, bot.username);
+
+    res.json({ success: true, jwt, refresh, bot: bot.toJSON() });
   } catch (error) {
-    res.json({ success: false, message: "Something went wrong" });
+    console.error(error);
+    res.status(400).json({ success: false, message: "Something went wrong" });
   }
 };
 
 const login = async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    const validPassword = user && bcrypt.compareSync(password, user.password);
+    const bot = await Bot.findOne({ username });
+    const validPassword = bot && bcrypt.compareSync(password, bot.password);
 
     if (!validPassword) {
-      return res.json({ success: false, message: "Wrong credentials" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Wrong credentials" });
     }
-    const jwt = await createJwt(user.id, user.email);
 
-    res.json({ success: true, jwt, user: user.toJSON() });
+    const jwt = await createAccessToken(bot.id, bot.username);
+    const refresh = await createRefreshToken(bot.id, bot.username);
+
+    bot.refresh = refresh;
+    await bot.save();
+
+    res.json({ success: true, jwt, refresh, bot: bot.toJSON() });
   } catch (error) {
-    res.json({ success: false, message: "Something went wrong" });
+    res.status(400).json({ success: false, message: "Something went wrong" });
+  }
+};
+
+const logout = async (req, res) => {
+  const { id } = req.body;
+  Bot.findByIdAndUpdate(id, { refresh: "" }, () => {});
+  res.json({ success: true });
+};
+
+const update = async (req, res) => {
+  const { id, token, channel } = req.body;
+  if (id !== req.id) {
+    return res
+      .status(403)
+      .json({ success: false, message: "Wrong user token" });
+  }
+
+  const bot = await Bot.findById(id);
+  if (!bot) {
+    return res.status(400).json({ success: false, message: "Wrong bot ID" });
+  }
+
+  bot.token = token;
+  bot.channel = channel;
+  try {
+    await bot.save();
+  } catch (error) {
+    res.status(400).json({ success: false, message: "Something went wrong" });
+  }
+
+  res.json({ success: true });
+};
+
+const available = async (req, res) => {
+  const { username } = req.query;
+
+  try {
+    const bot = await Bot.findOne({ username });
+    if (bot) {
+      return res.json({
+        success: false,
+        message: "Bot username already registered",
+      });
+    }
+
+    const twitchUser = await fetchUser(username);
+    if (!twitchUser) {
+      return res.json({
+        success: false,
+        message: "Username doesn't exist on Twitch",
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    if (error.message === "Client ID and OAuth token do not match") {
+      // Can't check username because wrong twitch token, return true
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ success: false, message: "Something went wrong" });
+    }
   }
 };
 
 const refresh = async (req, res) => {
-  const { id, email } = req;
+  const { bot } = req;
 
   try {
-    const jwt = await createJwt(id, email);
-    const user = await User.findOne({ email });
+    const jwt = await createAccessToken(bot.id, bot.username);
+    const refresh = await createRefreshToken(bot.id, bot.username);
 
-    res.json({ success: true, jwt, user: user.toJSON() });
+    bot.refresh = refresh;
+    await bot.save();
+
+    res.json({ success: true, jwt, refresh, bot: bot.toJSON() });
   } catch (error) {
     res.json({ success: false, message: "Something went wrong" });
   }
 };
 
 module.exports = {
+  register,
   login,
+  logout,
+  update,
+  available,
   refresh,
 };
